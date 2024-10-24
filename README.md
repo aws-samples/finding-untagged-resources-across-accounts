@@ -10,7 +10,7 @@ This repository provides a sample solution for finding both untagged and tagged 
 
 - A Lambda function calling ARE to list all untagged and tagged resources
 - A QuickSight dataset
-- A quickSight analysis
+- A QuickSight analysis
 
 ![sample-dashboard](./asset/dashboard.png)
 
