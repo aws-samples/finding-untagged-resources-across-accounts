@@ -1,6 +1,6 @@
 ---
 title: find untagged and tagged resources across accounts
-author: haimtran
+author: hai tran
 date: 06/10/2024
 ---
 
