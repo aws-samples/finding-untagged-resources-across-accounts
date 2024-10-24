@@ -6,7 +6,7 @@ date: 06/10/2024
 
 ## Introduction
 
-This repository provide a sample solution for finding both untagged and tagged resource acorss accounts by using AWS Resouce Explorer (ARE). It also automoate deploying a QuickSight dashboard for visualzing found resources. CloudFormation templates are provide for deploying:
+This repository provides a sample solution for finding both untagged and tagged resource acorss accounts by using AWS Resouce Explorer (ARE). It also automoate deploying a QuickSight dashboard for visualzing found resources. CloudFormation templates are provide for deploying:
 
 - A Lambda function calling ARE to list all untagged and tagged resources
 - A QuickSight dataset
