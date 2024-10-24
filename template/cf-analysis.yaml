@@ -1,0 +1,447 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create a QuickSight Analysis from a YAML file 
+# ----------------------------------------------------------
+# Parameter 
+# ----------------------------------------------------------
+Parameters:
+  DataSetIdentifier:
+    Type: String
+    Description: The dataset identifier
+    Default: "are-dataset-demo" 
+  AnalysisName:
+    Type: String
+    Description: The analysis name
+    Default: cloudformation-analysis-yaml
+  QuickSightUserArn:
+    Type: String
+    Description: "The ARN of QuickSight user"
+Resources:
+# ----------------------------------------------------------
+# Analysis 
+# ----------------------------------------------------------
+  Analysis:
+    Type: AWS::QuickSight::Analysis
+    Properties:
+      AnalysisId: !Ref AnalysisName
+      AwsAccountId: !Sub '${AWS::AccountId}'
+      Name: !Ref AnalysisName
+      ValidationStrategy:
+        Mode: LENIENT
+      Permissions:
+        - Principal: !Ref QuickSightUserArn
+          Actions:
+            - "quicksight:RestoreAnalysis"
+            - "quicksight:UpdateAnalysisPermissions"
+            - "quicksight:DeleteAnalysis"
+            - "quicksight:DescribeAnalysisPermissions"
+            - "quicksight:QueryAnalysis"
+            - "quicksight:DescribeAnalysis"
+            - "quicksight:UpdateAnalysis"
+      Definition:
+        AnalysisDefaults:
+          DefaultNewSheetConfiguration:
+            InteractiveLayoutConfiguration:
+              Grid:
+                CanvasSizeOptions:
+                  ScreenCanvasSizeOptions:
+                    OptimizedViewPortWidth: 1600px
+                    ResizeOption: FIXED
+            SheetContentType: INTERACTIVE
+        CalculatedFields:
+          - DataSetIdentifier: !Ref DataSetIdentifier 
+            Expression: distinct_count(OwningAccountId)
+            Name: COUNT_ACCOUNT_UNTAGGED_RESOURCE
+          - DataSetIdentifier: !Ref DataSetIdentifier 
+            Expression: count(OwningAccountId)
+            Name: COUNT_UNTAGGED_RESOURCE
+          - DataSetIdentifier: !Ref DataSetIdentifier 
+            Expression: distinct_count(ResourceType)
+            Name: COUNT_UNTAGGED_RESOURCE_TYPE
+          - DataSetIdentifier: !Ref DataSetIdentifier 
+            Expression: distinct_count(Service)
+            Name: COUNT_UNTAGGED_SERVICE_TYPE
+        DataSetIdentifierDeclarations:
+          - DataSetArn: 
+              Fn::Sub:
+                - 'arn:${AWS::Partition}:quicksight:${AWS::Region}:${AWS::AccountId}:dataset/${DataSetIdentifier}'
+                - DataSetIdentifier: !Ref DataSetIdentifier
+            Identifier: !Ref DataSetIdentifier 
+        FilterGroups: []
+        Options:
+          WeekStart: SUNDAY
+        ParameterDeclarations: []
+        QueryExecutionOptions:
+          QueryExecutionMode: AUTO
+        Sheets:
+          - ContentType: INTERACTIVE
+            Layouts:
+              - Configuration:
+                  GridLayout:
+                    CanvasSizeOptions:
+                      ScreenCanvasSizeOptions:
+                        OptimizedViewPortWidth: 1600px
+                        ResizeOption: FIXED
+                    Elements:
+                      - ColumnIndex: 0
+                        ColumnSpan: 8
+                        ElementId: f04c24cb-9202-4b30-88d6-df57695f1040
+                        ElementType: VISUAL
+                        RowIndex: 0
+                        RowSpan: 4
+                      - ColumnIndex: 8
+                        ColumnSpan: 8
+                        ElementId: 4184557c-65b4-4657-b2b5-210db8406df1
+                        ElementType: VISUAL
+                        RowIndex: 0
+                        RowSpan: 4
+                      - ColumnIndex: 16
+                        ColumnSpan: 9
+                        ElementId: a2d2e0e5-dd79-4ad7-b361-cd0999b9b86f
+                        ElementType: VISUAL
+                        RowIndex: 0
+                        RowSpan: 4
+                      - ColumnIndex: 25
+                        ColumnSpan: 10
+                        ElementId: dced597d-4eeb-4612-bb0a-115df353245c
+                        ElementType: VISUAL
+                        RowIndex: 0
+                        RowSpan: 4
+                      - ColumnIndex: 0
+                        ColumnSpan: 11
+                        ElementId: bdc32b7f-aaca-4d9f-b043-6fbe6c9859f9
+                        ElementType: VISUAL
+                        RowIndex: 4
+                        RowSpan: 9
+                      - ColumnIndex: 11
+                        ColumnSpan: 12
+                        ElementId: ac7bc5dd-aa10-49b1-b9cc-49b9b2f0d01c
+                        ElementType: VISUAL
+                        RowIndex: 4
+                        RowSpan: 9
+                      - ColumnIndex: 23
+                        ColumnSpan: 12
+                        ElementId: 4823e403-26db-4166-a9b3-5ce7aa4a02a4
+                        ElementType: VISUAL
+                        RowIndex: 4
+                        RowSpan: 9
+                      - ColumnIndex: 0
+                        ColumnSpan: 35
+                        ElementId: 9e2ebfbc-4df4-49fb-8703-63852b1024ed
+                        ElementType: VISUAL
+                        RowIndex: 13
+                        RowSpan: 9
+            Name: Sheet 1
+            SheetId: f0c81460-72bc-4e4d-8153-ca3dd65b6211
+            Visuals:
+              - PieChartVisual:
+                  Actions: []
+                  ChartConfiguration:
+                    DataLabels:
+                      Overlap: DISABLE_OVERLAP
+                      Visibility: VISIBLE
+                    DonutOptions:
+                      ArcOptions:
+                        ArcThickness: WHOLE
+                    FieldWells:
+                      PieChartAggregatedFieldWells:
+                        Category:
+                          - CategoricalDimensionField:
+                              Column:
+                                ColumnName: ResourceType
+                                DataSetIdentifier: !Ref DataSetIdentifier 
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.ResourceType.0.1727566244812
+                        Values: []
+                    SortConfiguration:
+                      CategoryItemsLimit:
+                        OtherCategories: INCLUDE
+                      SmallMultiplesLimitConfiguration:
+                        OtherCategories: INCLUDE
+                    Tooltip:
+                      FieldBasedTooltip:
+                        AggregationVisibility: HIDDEN
+                        TooltipFields:
+                          - FieldTooltipItem:
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.ResourceType.0.1727566244812
+                              Visibility: VISIBLE
+                        TooltipTitleType: PRIMARY_VALUE
+                      SelectedTooltipType: DETAILED
+                      TooltipVisibility: VISIBLE
+                  ColumnHierarchies: []
+                  Subtitle:
+                    Visibility: VISIBLE
+                  Title:
+                    Visibility: VISIBLE
+                  VisualId: ac7bc5dd-aa10-49b1-b9cc-49b9b2f0d01c
+              - PieChartVisual:
+                  Actions: []
+                  ChartConfiguration:
+                    DataLabels:
+                      Overlap: DISABLE_OVERLAP
+                      Visibility: VISIBLE
+                    DonutOptions:
+                      ArcOptions:
+                        ArcThickness: WHOLE
+                    FieldWells:
+                      PieChartAggregatedFieldWells:
+                        Category:
+                          - CategoricalDimensionField:
+                              Column:
+                                ColumnName: Service
+                                DataSetIdentifier: !Ref DataSetIdentifier 
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.Service.0.1727566278934
+                        Values: []
+                    SortConfiguration:
+                      CategoryItemsLimit:
+                        OtherCategories: INCLUDE
+                      SmallMultiplesLimitConfiguration:
+                        OtherCategories: INCLUDE
+                    Tooltip:
+                      FieldBasedTooltip:
+                        AggregationVisibility: HIDDEN
+                        TooltipFields:
+                          - FieldTooltipItem:
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.Service.0.1727566278934
+                              Visibility: VISIBLE
+                        TooltipTitleType: PRIMARY_VALUE
+                      SelectedTooltipType: DETAILED
+                      TooltipVisibility: VISIBLE
+                  ColumnHierarchies: []
+                  Subtitle:
+                    Visibility: VISIBLE
+                  Title:
+                    Visibility: VISIBLE
+                  VisualId: 4823e403-26db-4166-a9b3-5ce7aa4a02a4
+              - BarChartVisual:
+                  Actions: []
+                  ChartConfiguration:
+                    BarsArrangement: CLUSTERED
+                    DataLabels:
+                      Overlap: DISABLE_OVERLAP
+                      Visibility: HIDDEN
+                    FieldWells:
+                      BarChartAggregatedFieldWells:
+                        Category:
+                          - NumericalDimensionField:
+                              Column:
+                                ColumnName: OwningAccountId
+                                DataSetIdentifier: !Ref DataSetIdentifier 
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.OwningAccountId.0.1727566336051
+                        Colors: []
+                        Values: []
+                    Orientation: HORIZONTAL
+                    SortConfiguration:
+                      CategoryItemsLimit:
+                        OtherCategories: INCLUDE
+                      ColorItemsLimit:
+                        OtherCategories: INCLUDE
+                      SmallMultiplesLimitConfiguration:
+                        OtherCategories: INCLUDE
+                    Tooltip:
+                      FieldBasedTooltip:
+                        AggregationVisibility: HIDDEN
+                        TooltipFields:
+                          - FieldTooltipItem:
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.OwningAccountId.0.1727566336051
+                              Visibility: VISIBLE
+                        TooltipTitleType: PRIMARY_VALUE
+                      SelectedTooltipType: DETAILED
+                      TooltipVisibility: VISIBLE
+                  ColumnHierarchies: []
+                  Subtitle:
+                    Visibility: VISIBLE
+                  Title:
+                    Visibility: VISIBLE
+                  VisualId: bdc32b7f-aaca-4d9f-b043-6fbe6c9859f9
+              - TableVisual:
+                  Actions: []
+                  ChartConfiguration:
+                    FieldOptions:
+                      Order: []
+                      SelectedFieldOptions:
+                        - FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.OwningAccountId.0.1727566367724
+                          Width: 171px
+                        - FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.ResourceType.1.1727566371502
+                          Width: 167px
+                        - FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.Service.2.1727566373673
+                          Width: 128px
+                    FieldWells:
+                      TableAggregatedFieldWells:
+                        GroupBy:
+                          - NumericalDimensionField:
+                              Column:
+                                ColumnName: OwningAccountId
+                                DataSetIdentifier: !Ref DataSetIdentifier 
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.OwningAccountId.0.1727566367724
+                          - CategoricalDimensionField:
+                              Column:
+                                ColumnName: ResourceType
+                                DataSetIdentifier: !Ref DataSetIdentifier 
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.ResourceType.1.1727566371502
+                          - CategoricalDimensionField:
+                              Column:
+                                ColumnName: Service
+                                DataSetIdentifier: !Ref DataSetIdentifier 
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.Service.2.1727566373673
+                          - CategoricalDimensionField:
+                              Column:
+                                ColumnName: Region
+                                DataSetIdentifier: !Ref DataSetIdentifier 
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.Region.3.1727566375563
+                          - DateDimensionField:
+                              Column:
+                                ColumnName: LastReportedAt
+                                DataSetIdentifier: !Ref DataSetIdentifier 
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.LastReportedAt.4.1727566378223
+                          - CategoricalDimensionField:
+                              Column:
+                                ColumnName: Arn
+                                DataSetIdentifier: !Ref DataSetIdentifier 
+                              FieldId: 75a6d921-126b-4c2f-9fe8-f4089a9f96f2.Arn.6.1727566390092
+                        Values: []
+                    SortConfiguration: {}
+                    TableOptions:
+                      HeaderStyle:
+                        Height: 25
+                        TextWrap: WRAP
+                  Subtitle:
+                    Visibility: VISIBLE
+                  Title:
+                    Visibility: VISIBLE
+                  VisualId: 9e2ebfbc-4df4-49fb-8703-63852b1024ed
+              - KPIVisual:
+                  Actions: []
+                  ChartConfiguration:
+                    FieldWells:
+                      TargetValues: []
+                      TrendGroups: []
+                      Values:
+                        - NumericalMeasureField:
+                            Column:
+                              ColumnName: COUNT_UNTAGGED_RESOURCE
+                              DataSetIdentifier: !Ref DataSetIdentifier 
+                            FieldId: f34ebbeb-c417-4113-8b30-031c9afadb70.0.1727566818798
+                    KPIOptions:
+                      Comparison:
+                        ComparisonMethod: PERCENT_DIFFERENCE
+                      PrimaryValueDisplayType: ACTUAL
+                      SecondaryValueFontConfiguration:
+                        FontSize:
+                          Relative: EXTRA_LARGE
+                      Sparkline:
+                        Type: AREA
+                        Visibility: VISIBLE
+                      VisualLayoutOptions:
+                        StandardLayout:
+                          Type: VERTICAL
+                    SortConfiguration: {}
+                  ColumnHierarchies: []
+                  Subtitle:
+                    Visibility: VISIBLE
+                  Title:
+                    Visibility: VISIBLE
+                  VisualId: f04c24cb-9202-4b30-88d6-df57695f1040
+              - KPIVisual:
+                  Actions: []
+                  ChartConfiguration:
+                    FieldWells:
+                      TargetValues: []
+                      TrendGroups: []
+                      Values:
+                        - NumericalMeasureField:
+                            Column:
+                              ColumnName: COUNT_ACCOUNT_UNTAGGED_RESOURCE
+                              DataSetIdentifier: !Ref DataSetIdentifier 
+                            FieldId: 67bd39a9-c144-4c7b-9291-fee51730ad86.0.1727566923496
+                    KPIOptions:
+                      Comparison:
+                        ComparisonMethod: PERCENT_DIFFERENCE
+                      PrimaryValueDisplayType: ACTUAL
+                      SecondaryValueFontConfiguration:
+                        FontSize:
+                          Relative: EXTRA_LARGE
+                      Sparkline:
+                        Type: AREA
+                        Visibility: VISIBLE
+                      VisualLayoutOptions:
+                        StandardLayout:
+                          Type: VERTICAL
+                    SortConfiguration: {}
+                  ColumnHierarchies: []
+                  Subtitle:
+                    Visibility: VISIBLE
+                  Title:
+                    Visibility: VISIBLE
+                  VisualId: 4184557c-65b4-4657-b2b5-210db8406df1
+              - KPIVisual:
+                  Actions: []
+                  ChartConfiguration:
+                    FieldWells:
+                      TargetValues: []
+                      TrendGroups: []
+                      Values:
+                        - NumericalMeasureField:
+                            Column:
+                              ColumnName: COUNT_UNTAGGED_SERVICE_TYPE
+                              DataSetIdentifier: !Ref DataSetIdentifier 
+                            FieldId: 152769b7-4dcd-4899-925b-01ad2c880b24.0.1727566982535
+                    KPIOptions:
+                      Comparison:
+                        ComparisonMethod: PERCENT_DIFFERENCE
+                      PrimaryValueDisplayType: ACTUAL
+                      SecondaryValueFontConfiguration:
+                        FontSize:
+                          Relative: EXTRA_LARGE
+                      Sparkline:
+                        Type: AREA
+                        Visibility: VISIBLE
+                      VisualLayoutOptions:
+                        StandardLayout:
+                          Type: VERTICAL
+                    SortConfiguration: {}
+                  ColumnHierarchies: []
+                  Subtitle:
+                    Visibility: VISIBLE
+                  Title:
+                    Visibility: VISIBLE
+                  VisualId: a2d2e0e5-dd79-4ad7-b361-cd0999b9b86f
+              - KPIVisual:
+                  Actions: []
+                  ChartConfiguration:
+                    FieldWells:
+                      TargetValues: []
+                      TrendGroups: []
+                      Values:
+                        - NumericalMeasureField:
+                            Column:
+                              ColumnName: COUNT_UNTAGGED_RESOURCE_TYPE
+                              DataSetIdentifier: !Ref DataSetIdentifier 
+                            FieldId: 35236a41-e8b0-4c17-944e-7e7ddefd00ac.0.1727567049337
+                    KPIOptions:
+                      Comparison:
+                        ComparisonMethod: PERCENT_DIFFERENCE
+                      PrimaryValueDisplayType: ACTUAL
+                      SecondaryValueFontConfiguration:
+                        FontSize:
+                          Relative: EXTRA_LARGE
+                      Sparkline:
+                        Type: AREA
+                        Visibility: VISIBLE
+                      VisualLayoutOptions:
+                        StandardLayout:
+                          Type: VERTICAL
+                    SortConfiguration: {}
+                  ColumnHierarchies: []
+                  Subtitle:
+                    Visibility: VISIBLE
+                  Title:
+                    Visibility: VISIBLE
+                  VisualId: dced597d-4eeb-4612-bb0a-115df353245c
+# ----------------------------------------------------------
+# Outputs 
+# ----------------------------------------------------------
+Outputs:
+  AnalysisArn:
+    Description: Analysis ARN
+    Value: !GetAtt Analysis.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-AnalysisArn"

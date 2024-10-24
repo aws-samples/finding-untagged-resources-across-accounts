@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create a QuickSight data analysis"
+# ----------------------------------------------------------
+# Parameter 
+# ----------------------------------------------------------
+Parameters:
+  QuickSightUserArn:
+    Type: String
+    Description: "The ARN of QuickSight user"
+  S3BucketName: 
+    Type: String 
+    Description: "S3 bucket name to store the manifest file"
+  S3KeyName:
+    Type: String
+    Description: "S3 key name for the manifest file"
+  DataSourceName: 
+    Type: String 
+    Description: "QuickSight datasource name"
+    Default: "example-datasource-cloudformation"
+  DataSetName:
+    Type: String 
+    Description: "QuickSight dataset name"
+    Default: "are-dataset-demo"
+Resources:
+# ----------------------------------------------------------
+# DataSource 
+# ----------------------------------------------------------
+  DataSource:
+    Type: AWS::QuickSight::DataSource
+    Properties:
+      AwsAccountId: !Ref AWS::AccountId
+      DataSourceId: !Ref DataSourceName 
+      Name: !Ref DataSourceName 
+      Type: "S3"
+      DataSourceParameters:
+        S3Parameters:
+          ManifestFileLocation:
+            Bucket: !Ref S3BucketName
+            Key: !Ref S3KeyName
+      Permissions:
+        - Principal: !Ref QuickSightUserArn
+          Actions:
+            - "quicksight:DescribeDataSource"
+            - "quicksight:DescribeDataSourcePermissions"
+            - "quicksight:UpdateDataSource"
+            - "quicksight:UpdateDataSourcePermissions"
+            - "quicksight:DeleteDataSource"
+            - "quicksight:PassDataSource"
+# ----------------------------------------------------------
+# DataSet 
+# ----------------------------------------------------------i
+  DataSet:
+    Type: AWS::QuickSight::DataSet
+    Properties:
+      AwsAccountId: !Ref AWS::AccountId
+      DataSetId: !Ref DataSetName 
+      Name: !Ref DataSetName 
+      PhysicalTableMap:
+        PhysicalTableResourceExplorer: 
+          S3Source:
+            DataSourceArn: !GetAtt DataSource.Arn
+            InputColumns:
+              - Name: "Arn" 
+                Type: "STRING"
+              - Name: "LastReportedAt" 
+                Type: "STRING"
+              - Name: "OwningAccountId" 
+                Type: "STRING"
+              - Name: "Properties" 
+                Type: "STRING"
+              - Name: "Region" 
+                Type: "STRING"
+              - Name: "ResourceType" 
+                Type: "STRING"
+              - Name: "Service" 
+                Type: "STRING"
+            UploadSettings:
+              ContainsHeader: true
+              Delimiter: ","
+              Format: "CSV"
+              StartFromRow: 1
+      LogicalTableMap:
+        LogicalTableResourceExplorer: 
+          Alias: !Ref DataSetName 
+          DataTransforms:
+            - CastColumnTypeOperation:
+                ColumnName: "OwningAccountId"
+                NewColumnType: "INTEGER"
+            - CastColumnTypeOperation:
+                ColumnName: "LastReportedAt"
+                NewColumnType: "DATETIME"
+                Format: "yyyy-MM-dd HH:mm:ssZ"
+            - TagColumnOperation:
+                ColumnName: "Region"
+                Tags:
+                  - ColumnGeographicRole: "STATE"
+          Source:
+            PhysicalTableId: PhysicalTableResourceExplorer
+      ImportMode: "SPICE"
+      Permissions:
+        - Principal: !Ref QuickSightUserArn
+          Actions:
+            - "quicksight:DescribeDataSet"
+            - "quicksight:DescribeDataSetPermissions"
+            - "quicksight:PassDataSet"
+            - "quicksight:DescribeIngestion"
+            - "quicksight:ListIngestions"
+            - "quicksight:UpdateDataSet"
+            - "quicksight:DeleteDataSet"
+            - "quicksight:CreateIngestion"
+            - "quicksight:CancelIngestion"
+            - "quicksight:UpdateDataSetPermissions"
+# ----------------------------------------------------------
+# Outputs 
+# ----------------------------------------------------------
+Outputs:
+  DataSourceArn:
+    Description: "DataSource Arn"
+    Value: !GetAtt DataSource.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-DataSourceArn
+  DataSetArn:
+    Description: "DataSet Arn"
+    Value: !GetAtt DataSet.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-DataSetArn
+  DataSetIdentifier:
+    Description: "DataSet Identifier"
+    Value: !Ref DataSetName 
+    Export:
+      Name: !Sub ${AWS::StackName}-DataSetIdentifier

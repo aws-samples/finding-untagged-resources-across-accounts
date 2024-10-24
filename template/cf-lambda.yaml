@@ -1,0 +1,327 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "This cloudformation create a Lambda function to retrieve resources across accounts."
+#----------------------------------------------------------
+# Parameters
+#----------------------------------------------------------
+Parameters:
+  LambdaFunctionName:
+    Type: String 
+    Default: "CentralizedRDSRecommendations"
+    Description: The name of the Lambda function
+  LambdaRoleName:
+    Type: String
+    Default: "LambdaGetRDSRecommendationsRole"
+    Description: The name of the Lambda IAM role
+  LambdaPolicyName:
+    Type: String
+    Default: "LambdaGetRDSRecommendationsPolicy"
+    Description: The name of the Lambda IAM policy
+  S3BucketName:
+    Type: String
+    Description: The name of the S3 bucket to store recommendations
+  LambdaLayerArn: 
+    Type: String
+    Default: ""
+    Description: The Lambda layer to ensure boto3 is the latest version
+  AREViewArn:
+    Type: String
+    Description: The AWS Resource Explorer view ARN
+Conditions:
+  LambdaLayerNotEmpty:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: LambdaLayerArn
+          - ""
+Resources:
+#----------------------------------------------------------
+# Lambda execution role 
+#----------------------------------------------------------
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref LambdaRoleName 
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: !Ref LambdaPolicyName
+        PolicyDocument: !Sub
+          - |
+            {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "*",
+                  "Effect": "Allow"
+                },
+                {
+                  "Action": [
+                    "resource-explorer-2:ListResources",
+                    "resource-explorer-2:ListResourceTypes"
+                  ],
+                  "Resource": "${AREViewArn}",
+                  "Effect": "Allow"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:PutObject"
+                  ],
+                  "Resource": "arn:${PARTITION}:s3:::${S3BucketName}/*"
+                }
+              ]
+            }
+          - S3BucketName: !Ref S3BucketName
+            PARTITION: !Ref AWS::Partition
+            AREViewArn: !Ref AREViewArn
+#----------------------------------------------------------
+# Lambda function
+#----------------------------------------------------------
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName 
+      Handler: "index.handler"
+      Role:
+        Fn::GetAtt:
+        - LambdaExecutionRole
+        - Arn
+      Layers:
+        Fn::If:
+        - LambdaLayerNotEmpty
+        - - Ref: LambdaLayerArn
+        - Ref: AWS::NoValue
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref S3BucketName
+          REGION: !Ref AWS::Region
+          ARE_VIEW_ARN: !Ref AREViewArn
+      Runtime: "python3.9"
+      Timeout: 300
+      MemorySize: 1024
+      Tags:
+        - Key: "Name"
+          Value: !Ref LambdaFunctionName
+      Code:
+        ZipFile: |
+          import os
+          import boto3
+          import csv
+          from datetime import datetime
+          import json
+
+          # aws resource explorer region and s3 quicksight region
+          REGION = os.getenv("ARE_AWS_REGION")
+          # aws resource explorer view arn
+          ARE_VIEW_ARN = os.getenv("ARE_VIEW_ARN")
+          # s3 quicksight bucket name
+          S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+          # the maximum number of results to return in a single call.
+          MAX_RESULT = 500
+
+          # resource explorer client
+          rs_client = boto3.client("resource-explorer-2", region_name=REGION)
+          # s3 client
+          s3_client = boto3.client("s3", region_name=REGION)
+
+
+          # get supported resource types
+          def get_supported_resource_types():
+              """
+              Returns a list of supported resource types by the aws resource explorer (ARE).
+
+              :return: The list of supported resource types.
+              :rtype: list [{"ResourceType": 'string', "Service": 'string'}]
+              """
+              # supported resource types
+              supported_resource_types = []
+              # init
+              response = rs_client.list_supported_resource_types(MaxResults=MAX_RESULT)
+              # next token
+              next_token = response["NextToken"]
+              # resource types
+              supported_resource_types += response["ResourceTypes"]
+              # loop until null
+              while next_token is not None:
+                  #
+                  response = rs_client.list_supported_resource_types(
+                      MaxResults=MAX_RESULT, NextToken=next_token
+                  )
+                  # get resources
+                  try:
+                      supported_resource_types += response["ResourceTypes"]
+                  except:
+                      print("no resources")
+                  # get next token
+                  try:
+                      next_token = response["NextToken"]
+                  except:
+                      next_token = None
+              # return
+              return supported_resource_types
+
+
+          def list_resources(filter_string):
+              """
+              List resources across account by using aws resource explorer (ARE).
+
+              :param: filter_string which contains search keywords, i.e., "resourcetype:rds:instance tag:none"
+              :return: The list of resources.
+              :rtype: list [{"Arn": 'string', "LastReportedAt": 'string', "Name": 'string', "ResourceType": 'string', "Service": 'string'}]
+              """
+              resources = []
+              # first time
+              response = rs_client.list_resources(
+                  Filters={"FilterString": filter_string},
+                  ViewArn=ARE_VIEW_ARN,
+                  MaxResults=MAX_RESULT,
+              )
+              resources += response["Resources"]
+              # get next token
+              try:
+                  next_token = response["NextToken"]
+              except:
+                  next_token = None
+
+              # loop until next token null
+              while next_token is not None:
+                  response = rs_client.list_resources(
+                      Filters={"FilterString": filter_string},
+                      ViewArn=ARE_VIEW_ARN,
+                      MaxResults=MAX_RESULT,
+                      NextToken=next_token,
+                  )
+                  # get resources
+                  try:
+                      resources += response["Resources"]
+                  except:
+                      print("no resources")
+                  # get next token
+                  try:
+                      next_token = response["NextToken"]
+                  except:
+                      next_token = None
+              # return
+              return resources
+
+
+          def find_all_untagged_resources():
+              """
+              Find untagged resources with tag:none by using aws resource explorer (ARE).
+
+              :return: The list of resources.
+              """
+              # create filter string
+              filter_string = "tag:none"
+              # list resources
+              resources = list_resources(filter_string)
+              # return
+              return resources
+
+
+          def find_untagged_resources_by_types(resource_types):
+              """
+              Find untagged resources by resource types using aws resource explorer (ARE).
+
+              :param: resource_types: The list of resource types to filter.
+              :return: The list of resources.
+              :rtype: list [{"Arn": 'string', "LastReportedAt": 'string', "Name": 'string', "ResourceType": 'string', "Service": 'string'}]
+              """
+              resources = []
+              for resource_type in resource_types:
+                  # create filter string
+                  filter_string = f"resourcetype:{resource_type} tag:none"
+                  # list resources
+                  resources += list_resources(filter_string)
+              # return
+              return resoures
+
+
+          def write_found_resources_to_csv(resources):
+              """
+              Write found resources to csv file.
+
+              :param: resources: The list of resources.
+              :param: file_path: The file path to write the csv file.
+              :return: None
+              :rtype: None
+              """
+              # get timestamp
+              timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+              # file name
+              file_name = f"are_resources_{timestamp}"
+              # temporary file saving found resources
+              file_path = f"/tmp/{file_name}.csv"
+              # write to csv file
+              with open(file_path, "w", newline="") as csv_file:
+                  fieldnames = resources[0].keys()
+                  writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                  writer.writeheader()
+                  writer.writerows(resources)
+              # upload file to s3
+              s3_client.upload_file(
+                  file_path,
+                  S3_BUCKET_NAME,
+                  f"{file_name}.csv",
+              )
+              # create manifest file
+              qs_manifest = {
+                  "fileLocations": [
+                      {
+                          "URIs": [
+                              f"https://s3-{REGION}.amazonaws.com/{S3_BUCKET_NAME}/quicksight/{file_name}.csv"
+                          ]
+                      }
+                  ],
+                  "globalUploadSettings": {
+                      "format": "CSV",
+                      "delimiter": ",",
+                      "containsHeader": "true",
+                  },
+              }
+              # save manifest file to s3
+              s3_client.put_object(
+                  Bucket=S3_BUCKET_NAME,
+                  Key=f"quicksight/{file_name}.json",
+                  Body=json.dumps(qs_manifest),
+              )
+              return None
+
+
+          def handler(event, context):
+              """
+              Lambda handler to find resources across accounts using aws resource explorer (ARE).
+
+              :param: event: The event object.
+              :param: context: The context object.
+              :return: None
+              :rtype: None
+              """
+              # resource_types = ["ec2:image", "ec2:instance", "rds:db", "rds:cluster"]
+              # find_untagged_resources_by_types(resource_types)
+              resources = find_all_untagged_resources()
+              # write to csv
+              write_found_resources_to_csv(resources)
+              return None
+          #----------------------------------------------------------
+# Outputs
+#----------------------------------------------------------
+Outputs:
+  LambdaFunctionArn:
+    Value: !GetAtt LambdaFunction.Arn
+    Export:
+      Name: LambdaFunctionArn
+  LambdaExecutionRoleArn:
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: LambdaExecutionRoleArn
